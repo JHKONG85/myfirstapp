@@ -1,5 +1,6 @@
 import streamlit as st
 import random
+import base64
 
 # 상태 초기화
 if 'question_index' not in st.session_state:
@@ -36,6 +37,13 @@ def reset_quiz():
     st.session_state.show_result = False
     st.session_state.finished = False
 
+def show_celebration():
+    st.markdown("""
+    <div style='text-align: center;'>
+        <img src='https://media.giphy.com/media/3o6ZtaO9BZHcOjmErm/giphy.gif' width='300'>
+    </div>
+    """, unsafe_allow_html=True)
+
 st.title("🧮 구구단 퀴즈")
 
 if not st.session_state.questions:
@@ -57,7 +65,7 @@ else:
             if choice == q['answer']:
                 st.session_state.score += 1
                 st.session_state.show_result = True
-                st.balloons()
+                show_celebration()
                 st.success("정답입니다! 🎉")
             else:
                 st.session_state.show_result = True
