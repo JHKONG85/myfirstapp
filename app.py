@@ -6,12 +6,6 @@ from datetime import datetime
 import json
 from collections import Counter
 import re
-import base64
-from io import BytesIO
-import matplotlib.pyplot as plt
-from matplotlib import font_manager, rc
-from wordcloud import WordCloud
-import numpy as np
 
 # 페이지 설정
 st.set_page_config(
@@ -19,10 +13,6 @@ st.set_page_config(
     page_icon="✅",
     layout="wide"
 )
-
-# 한글 폰트 설정 (matplotlib용)
-plt.rcParams['font.family'] = 'DejaVu Sans'
-plt.rcParams['axes.unicode_minus'] = False
 
 # 세션 상태 초기화
 if 'responses' not in st.session_state:
@@ -281,7 +271,7 @@ with tab2:
         
         # 어려웠던 부분 워드클라우드
         st.markdown("---")
-        st.subheader("☁️ 어려웠던 부분 (워드클라우드)")
+        st.subheader("☁️ 어려웠던 부분 (빈도 분석)")
         
         difficult_texts = ' '.join(df[df['difficult_part'].notna()]['difficult_part'].tolist())
         
@@ -354,13 +344,9 @@ with tab3:
         )
         st.plotly_chart(fig, use_container_width=True)
         
-        # PDF 리포트 생성
-        st.markdown("---")
-        st.subheader("📄 PDF 리포트 생성")
-        
-        if st.button("📥 PDF 리포트 다운로드"):
-            # PDF 생성을 위한 HTML 내용
-            html_content = f"""
+        # HTML 리포트 생성 함수
+        def generate_html_report():
+            html_template = """
             <html>
             <head>
                 <meta charset="UTF-8">
@@ -379,9 +365,9 @@ with tab3:
                 <div class="stat">
                     <p><strong>학급:</strong> {class_name}</p>
                     <p><strong>과목:</strong> {subject}</p>
-                    <p><strong>일시:</strong> {datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분')}</p>
-                    <p><strong>참여 학생:</strong> {len(df)}명</p>
-                    <p><strong>평균 이해도:</strong> {df['understanding'].mean():.1f}점 / 5점</p>
+                    <p><strong>일시:</strong> {date}</p>
+                    <p><strong>참여 학생:</strong> {student_count}명</p>
+                    <p><strong>평균 이해도:</strong> {avg_understanding:.1f}점 / 5점</p>
                 </div>
                 
                 <h2>학습 목표별 달성률</h2>
@@ -390,21 +376,7 @@ with tab3:
                         <th>학습 목표</th>
                         <th>달성률</th>
                     </tr>
-            """
-            
-            valid_goals = [g for g in st.session_state.learning_goals if g.strip()]
-            for i, goal in enumerate(valid_goals):
-                goal_col = f"goal_{i+1}"
-                if goal_col in df.columns:
-                    achievement_rate = df[goal_col].sum() / len(df) * 100
-                    html_content += f"""
-                    <tr>
-                        <td>{goal}</td>
-                        <td>{achievement_rate:.1f}%</td>
-                    </tr>
-                    """
-            
-            html_content += """
+                    {goal_rows}
                 </table>
                 
                 <h2>개인별 현황</h2>
@@ -416,10 +388,30 @@ with tab3:
                         <th>달성률</th>
                         <th>도움 필요</th>
                     </tr>
+                    {student_rows}
+                </table>
+            </body>
+            </html>
             """
             
+            # 목표별 달성률 행 생성
+            goal_rows = ""
+            valid_goals = [g for g in st.session_state.learning_goals if g.strip()]
+            for i, goal in enumerate(valid_goals):
+                goal_col = f"goal_{i+1}"
+                if goal_col in df.columns:
+                    achievement_rate = df[goal_col].sum() / len(df) * 100
+                    goal_rows += f"""
+                    <tr>
+                        <td>{goal}</td>
+                        <td>{achievement_rate:.1f}%</td>
+                    </tr>
+                    """
+            
+            # 개인별 현황 행 생성
+            student_rows = ""
             for _, row in display_df.iterrows():
-                html_content += f"""
+                student_rows += f"""
                 <tr>
                     <td>{int(row['번호'])}</td>
                     <td>{int(row['이해도'])}</td>
@@ -429,13 +421,27 @@ with tab3:
                 </tr>
                 """
             
-            html_content += """
-                </table>
-            </body>
-            </html>
-            """
+            # 템플릿에 데이터 채우기
+            html_content = html_template.format(
+                class_name=class_name,
+                subject=subject,
+                date=datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분'),
+                student_count=len(df),
+                avg_understanding=df['understanding'].mean(),
+                goal_rows=goal_rows,
+                student_rows=student_rows
+            )
             
-            # HTML을 다운로드 가능한 형태로 제공 (PDF 변환은 별도 라이브러리 필요)
+            return html_content
+        
+        # PDF 리포트 생성
+        st.markdown("---")
+        st.subheader("📄 PDF 리포트 생성")
+        
+        if st.button("📥 PDF 리포트 다운로드"):
+            html_content = generate_html_report()
+            
+            # HTML을 다운로드 가능한 형태로 제공
             st.download_button(
                 label="📄 HTML 리포트 다운로드 (PDF로 인쇄 가능)",
                 data=html_content,
@@ -466,12 +472,6 @@ from datetime import datetime
 import json
 from collections import Counter
 import re
-import base64
-from io import BytesIO
-import matplotlib.pyplot as plt
-from matplotlib import font_manager, rc
-from wordcloud import WordCloud
-import numpy as np
 
 # 페이지 설정
 st.set_page_config(
@@ -479,10 +479,6 @@ st.set_page_config(
     page_icon="✅",
     layout="wide"
 )
-
-# 한글 폰트 설정 (matplotlib용)
-plt.rcParams['font.family'] = 'DejaVu Sans'
-plt.rcParams['axes.unicode_minus'] = False
 
 # 세션 상태 초기화
 if 'responses' not in st.session_state:
@@ -741,7 +737,7 @@ with tab2:
         
         # 어려웠던 부분 워드클라우드
         st.markdown("---")
-        st.subheader("☁️ 어려웠던 부분 (워드클라우드)")
+        st.subheader("☁️ 어려웠던 부분 (빈도 분석)")
         
         difficult_texts = ' '.join(df[df['difficult_part'].notna()]['difficult_part'].tolist())
         
@@ -814,13 +810,9 @@ with tab3:
         )
         st.plotly_chart(fig, use_container_width=True)
         
-        # PDF 리포트 생성
-        st.markdown("---")
-        st.subheader("📄 PDF 리포트 생성")
-        
-        if st.button("📥 PDF 리포트 다운로드"):
-            # PDF 생성을 위한 HTML 내용
-            html_content = f"""
+        # HTML 리포트 생성 함수
+        def generate_html_report():
+            html_template = """
             <html>
             <head>
                 <meta charset="UTF-8">
@@ -839,9 +831,9 @@ with tab3:
                 <div class="stat">
                     <p><strong>학급:</strong> {class_name}</p>
                     <p><strong>과목:</strong> {subject}</p>
-                    <p><strong>일시:</strong> {datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분')}</p>
-                    <p><strong>참여 학생:</strong> {len(df)}명</p>
-                    <p><strong>평균 이해도:</strong> {df['understanding'].mean():.1f}점 / 5점</p>
+                    <p><strong>일시:</strong> {date}</p>
+                    <p><strong>참여 학생:</strong> {student_count}명</p>
+                    <p><strong>평균 이해도:</strong> {avg_understanding:.1f}점 / 5점</p>
                 </div>
                 
                 <h2>학습 목표별 달성률</h2>
@@ -850,21 +842,7 @@ with tab3:
                         <th>학습 목표</th>
                         <th>달성률</th>
                     </tr>
-            """
-            
-            valid_goals = [g for g in st.session_state.learning_goals if g.strip()]
-            for i, goal in enumerate(valid_goals):
-                goal_col = f"goal_{i+1}"
-                if goal_col in df.columns:
-                    achievement_rate = df[goal_col].sum() / len(df) * 100
-                    html_content += f"""
-                    <tr>
-                        <td>{goal}</td>
-                        <td>{achievement_rate:.1f}%</td>
-                    </tr>
-                    """
-            
-            html_content += """
+                    {goal_rows}
                 </table>
                 
                 <h2>개인별 현황</h2>
@@ -876,10 +854,30 @@ with tab3:
                         <th>달성률</th>
                         <th>도움 필요</th>
                     </tr>
+                    {student_rows}
+                </table>
+            </body>
+            </html>
             """
             
+            # 목표별 달성률 행 생성
+            goal_rows = ""
+            valid_goals = [g for g in st.session_state.learning_goals if g.strip()]
+            for i, goal in enumerate(valid_goals):
+                goal_col = f"goal_{i+1}"
+                if goal_col in df.columns:
+                    achievement_rate = df[goal_col].sum() / len(df) * 100
+                    goal_rows += f"""
+                    <tr>
+                        <td>{goal}</td>
+                        <td>{achievement_rate:.1f}%</td>
+                    </tr>
+                    """
+            
+            # 개인별 현황 행 생성
+            student_rows = ""
             for _, row in display_df.iterrows():
-                html_content += f"""
+                student_rows += f"""
                 <tr>
                     <td>{int(row['번호'])}</td>
                     <td>{int(row['이해도'])}</td>
@@ -889,13 +887,27 @@ with tab3:
                 </tr>
                 """
             
-            html_content += """
-                </table>
-            </body>
-            </html>
-            """
+            # 템플릿에 데이터 채우기
+            html_content = html_template.format(
+                class_name=class_name,
+                subject=subject,
+                date=datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분'),
+                student_count=len(df),
+                avg_understanding=df['understanding'].mean(),
+                goal_rows=goal_rows,
+                student_rows=student_rows
+            )
             
-            # HTML을 다운로드 가능한 형태로 제공 (PDF 변환은 별도 라이브러리 필요)
+            return html_content
+        
+        # PDF 리포트 생성
+        st.markdown("---")
+        st.subheader("📄 PDF 리포트 생성")
+        
+        if st.button("📥 PDF 리포트 다운로드"):
+            html_content = generate_html_report()
+            
+            # HTML을 다운로드 가능한 형태로 제공
             st.download_button(
                 label="📄 HTML 리포트 다운로드 (PDF로 인쇄 가능)",
                 data=html_content,
